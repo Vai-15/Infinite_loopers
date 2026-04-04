@@ -1,0 +1,41 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node dependencies/build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+bundle/
+
+# Python virtual environments/caches
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Hardhat build artifacts
+/artifacts
+/cache
+/types
+/coverage
+
+# ML generated outputs
+ml/data/training.csv
+ml/models/credit_model.pkl
+
+# Editor/OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log
