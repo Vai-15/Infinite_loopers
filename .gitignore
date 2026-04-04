@@ -1,0 +1,45 @@
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build and coverage outputs
+dist/
+build/
+coverage/
+**/dist/
+**/build/
+**/coverage/
+
+# Hardhat generated files
+trustlend/blockchain/artifacts/
+trustlend/blockchain/cache/
+trustlend/blockchain/typechain-types/
+trustlend/blockchain/deployments/addresses.json
+
+# Local databases and runtime files
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp

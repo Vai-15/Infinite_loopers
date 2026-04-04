@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract TrustLend is ReentrancyGuard {
+    // ReentrancyGuard protects payable external entry points from nested callback attacks.
     enum LoanStatus {
         Open,
         Funded,
@@ -38,7 +39,8 @@ contract TrustLend is ReentrancyGuard {
 
     function createLoan(uint256 amount, uint256 durationDays, uint256 interestRate) external {
         require(amount > 0, "Amount must be greater than zero");
-        require(durationDays > 0, "Duration must be greater than zero");
+        require(durationDays >= 1 && durationDays <= 365, "Duration must be 1-365 days");
+        require(interestRate <= 50, "Interest rate must be 0-50%");
 
         loanCounter += 1;
         uint256 durationInSeconds = durationDays * 1 days;
@@ -60,6 +62,10 @@ contract TrustLend is ReentrancyGuard {
     }
 
     function fundLoan(uint256 loanId) external payable nonReentrant {
+        // Checks-Effects-Interactions:
+        // 1) Validate state and inputs
+        // 2) Update loan state
+        // 3) Transfer ETH to borrower
         Loan storage loan = loans[loanId];
         require(loan.id != 0, "Loan does not exist");
         require(loan.status == LoanStatus.Open, "Loan is not open");
@@ -78,6 +84,10 @@ contract TrustLend is ReentrancyGuard {
     }
 
     function repayLoan(uint256 loanId) external payable nonReentrant {
+        // Checks-Effects-Interactions:
+        // 1) Validate role/state/value
+        // 2) Update loan status/trust score
+        // 3) Transfer ETH to lender
         Loan storage loan = loans[loanId];
         require(loan.id != 0, "Loan does not exist");
         require(loan.status == LoanStatus.Funded, "Loan is not funded");

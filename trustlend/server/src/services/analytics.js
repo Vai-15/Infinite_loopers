@@ -7,6 +7,13 @@ const STATUS = {
     DEFAULTED: 3
 };
 
+const STATUS_LABELS = {
+    [STATUS.OPEN]: "Open",
+    [STATUS.FUNDED]: "Funded",
+    [STATUS.REPAID]: "Repaid",
+    [STATUS.DEFAULTED]: "Defaulted"
+};
+
 function normalizeLoan(loan) {
     return {
         id: Number(loan.id),
@@ -80,8 +87,10 @@ async function getOverview(db, contract) {
     const repaidLoans = loans.filter((loan) => loan.status === STATUS.REPAID).length;
     const defaultedLoans = loans.filter((loan) => loan.status === STATUS.DEFAULTED).length;
 
-    const fundedOrClosed = loans.filter((loan) => loan.status !== STATUS.OPEN);
-    const totalVolume = fundedOrClosed.reduce((sum, loan) => sum + loan.amountEth, 0);
+    const totalVolume = loans.reduce((sum, loan) => sum + loan.amountEth, 0);
+
+    const trustRows = db.prepare("SELECT AVG(score) AS avgTrustScore FROM trust_scores").get();
+    const avgTrustScore = Number(trustRows?.avgTrustScore || 0);
 
     const avgInterestRate =
         totalLoans === 0
@@ -94,11 +103,70 @@ async function getOverview(db, contract) {
         activeLoans,
         repaidLoans,
         defaultRate: totalLoans === 0 ? 0 : Number(((defaultedLoans / totalLoans) * 100).toFixed(2)),
-        avgInterestRate: Number(avgInterestRate.toFixed(2))
+        avgInterestRate: Number(avgInterestRate.toFixed(2)),
+        avgTrustScore: Number(avgTrustScore.toFixed(2))
     };
 
     setCached(db, cacheKey, overview);
     return overview;
+}
+
+function getStatusBreakdown(loans) {
+    const counts = {
+        Open: 0,
+        Funded: 0,
+        Repaid: 0,
+        Defaulted: 0
+    };
+
+    loans.forEach((loan) => {
+        const label = STATUS_LABELS[loan.status] || "Open";
+        counts[label] += 1;
+    });
+
+    return Object.entries(counts).map(([status, count]) => ({ status, count }));
+}
+
+function getDurationBuckets(loans) {
+    const buckets = [
+        { bucket: "7d", min: 0, max: 7, count: 0 },
+        { bucket: "14d", min: 8, max: 14, count: 0 },
+        { bucket: "30d", min: 15, max: 30, count: 0 },
+        { bucket: "60d", min: 31, max: 60, count: 0 },
+        { bucket: "90d", min: 61, max: 365, count: 0 }
+    ];
+
+    loans.forEach((loan) => {
+        const days = Math.ceil(loan.duration / 86400);
+        const bucket = buckets.find((entry) => days >= entry.min && days <= entry.max);
+        if (bucket) {
+            bucket.count += 1;
+        }
+    });
+
+    return buckets.map(({ bucket, count }) => ({ bucket, count }));
+}
+
+function getTrustScoreDistribution(db) {
+    const rows = db.prepare("SELECT score FROM trust_scores").all();
+
+    const bins = [
+        { range: "0-20", min: 0, max: 20, count: 0 },
+        { range: "21-40", min: 21, max: 40, count: 0 },
+        { range: "41-60", min: 41, max: 60, count: 0 },
+        { range: "61-80", min: 61, max: 80, count: 0 },
+        { range: "81-100", min: 81, max: 100, count: 0 }
+    ];
+
+    rows.forEach((row) => {
+        const score = Number(row.score || 0);
+        const bin = bins.find((entry) => score >= entry.min && score <= entry.max);
+        if (bin) {
+            bin.count += 1;
+        }
+    });
+
+    return bins.map(({ range, count }) => ({ range, count }));
 }
 
 function getVolumeByDay(db, days = 30) {
@@ -144,7 +212,7 @@ function getTopBorrowers(db) {
         .all();
 }
 
-function getTopLenders(db) {
+async function getTopLenders(db, contract) {
     const rows = db
         .prepare(
             `
@@ -162,20 +230,83 @@ function getTopLenders(db) {
         byAddress.set(row.address, prev.add(row.amount));
     });
 
+    const loans = await fetchAllLoans(contract);
+    const lendersByStats = new Map();
+
+    loans.forEach((loan) => {
+        if (!loan.lender || loan.lender === ethers.constants.AddressZero) {
+            return;
+        }
+
+        const lender = loan.lender.toLowerCase();
+        if (!lendersByStats.has(lender)) {
+            lendersByStats.set(lender, {
+                activeLoans: 0,
+                earnedInterestWei: ethers.BigNumber.from(0)
+            });
+        }
+
+        const current = lendersByStats.get(lender);
+        if (loan.status === STATUS.FUNDED) {
+            current.activeLoans += 1;
+        }
+        if (loan.status === STATUS.REPAID) {
+            const interestWei = loan.amount.mul(loan.interestRate).div(100);
+            current.earnedInterestWei = current.earnedInterestWei.add(interestWei);
+        }
+    });
+
     return Array.from(byAddress.entries())
         .map(([address, totalWei]) => ({
             address,
-            totalEth: Number(ethers.utils.formatEther(totalWei))
+            totalEth: Number(ethers.utils.formatEther(totalWei)),
+            activeLoans: lendersByStats.get(address)?.activeLoans || 0,
+            earnedInterest: Number(
+                ethers.utils.formatEther(
+                    lendersByStats.get(address)?.earnedInterestWei || ethers.BigNumber.from(0)
+                )
+            )
         }))
         .sort((a, b) => b.totalEth - a.totalEth)
         .slice(0, 5);
 }
 
+function getRecentEvents(db, limit = 10) {
+    const normalizedLimit = Math.max(1, Math.min(100, Number(limit) || 10));
+
+    return db
+        .prepare(
+            `
+            SELECT id, eventType, loanId, address, amount, txHash, blockNumber, timestamp
+            FROM events
+            ORDER BY blockNumber DESC, timestamp DESC
+            LIMIT ?
+            `
+        )
+        .all(normalizedLimit);
+}
+
+async function getDashboardAnalytics(db, contract) {
+    const [overview, loans] = await Promise.all([getOverview(db, contract), fetchAllLoans(contract)]);
+
+    return {
+        overview,
+        statusBreakdown: getStatusBreakdown(loans),
+        durationBuckets: getDurationBuckets(loans),
+        trustDistribution: getTrustScoreDistribution(db)
+    };
+}
+
 module.exports = {
     getOverview,
+    getDashboardAnalytics,
     getVolumeByDay,
     getTopBorrowers,
     getTopLenders,
+    getRecentEvents,
+    getStatusBreakdown,
+    getDurationBuckets,
+    getTrustScoreDistribution,
     fetchAllLoans,
     normalizeLoan
 };

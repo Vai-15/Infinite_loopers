@@ -48,7 +48,14 @@ async function bootstrap() {
 
     const app = express();
 
-    app.use(helmet());
+    app.use(
+        helmet({
+            contentSecurityPolicy: false,
+            crossOriginEmbedderPolicy: false
+        })
+    );
+    app.use(helmet.hsts({ maxAge: 15552000, includeSubDomains: true }));
+    app.use(helmet.noSniff());
     app.use(
         cors({
             origin: CORS_ORIGIN
