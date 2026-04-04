@@ -36,5 +36,8 @@ services:
         condition: service_healthy
     env_file:
       - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://admin:hackathon2024@postgres:5432/decentra_lend
+      REDIS_URL: redis://redis:6379
     volumes:
       - ./ml/models:/app/ml/models

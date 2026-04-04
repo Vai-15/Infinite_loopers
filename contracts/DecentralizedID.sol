@@ -31,14 +31,23 @@ contract DecentralizedID is Ownable {
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
+    function _register(string calldata ipfsCID) internal {
+        if (bytes(_documents[msg.sender].ipfsCID).length != 0) revert AlreadyRegistered();
+        _documents[msg.sender].ipfsCID = ipfsCID;
+        emit IdentityRegistered(msg.sender, ipfsCID);
+    }
+
     /**
      * @notice Register one DID per address.
      * @param ipfsCID IPFS CID of the DID document.
      */
     function registerIdentity(string calldata ipfsCID) external {
-        if (bytes(_documents[msg.sender].ipfsCID).length != 0) revert AlreadyRegistered();
-        _documents[msg.sender].ipfsCID = ipfsCID;
-        emit IdentityRegistered(msg.sender, ipfsCID);
+        _register(ipfsCID);
+    }
+
+    /// @notice Alias for off-chain DID strings (e.g. did:polygon:0x...).
+    function registerDID(string calldata did) external {
+        _register(did);
     }
 
     /**

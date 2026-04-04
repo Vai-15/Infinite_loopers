@@ -125,6 +125,11 @@ contract ReputationNFT is ERC1155, Ownable {
         return _scores[id];
     }
 
+    /// @return ERC-1155 token id for `holder` (0 if none).
+    function tokenIdOf(address holder) external view returns (uint256) {
+        return _holderTokenId[holder];
+    }
+
     /// @dev Soulbound: block transfers between non-zero addresses.
     function _update(
         address from,

@@ -7,6 +7,8 @@ export default function LoanRequestModal({ isOpen, onClose, onSubmit, loading })
   const [durationDays, setDurationDays] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [guarantor, setGuarantor] = useState("");
+  const [description, setDescription] = useState("");
 
   if (!isOpen) {
     return null;
@@ -19,10 +21,17 @@ export default function LoanRequestModal({ isOpen, onClose, onSubmit, loading })
       amount_usdc: Number(sanitizeNumericInput(amount)),
       duration_days: Number(sanitizeIntegerInput(durationDays)),
       interest_rate: Number(sanitizeNumericInput(interestRate)),
-      purpose: sanitizeText(purpose || "General")
+      purpose: sanitizeText(purpose || "General"),
+      guarantor_wallet: guarantor.trim(),
+      description: sanitizeText(description || "")
     };
 
-    if (payload.amount_usdc <= 0 || payload.duration_days <= 0 || payload.interest_rate <= 0) {
+    if (
+      payload.amount_usdc <= 0 ||
+      payload.duration_days <= 0 ||
+      payload.interest_rate <= 0 ||
+      payload.guarantor_wallet.length !== 42
+    ) {
       return;
     }
 
@@ -31,6 +40,8 @@ export default function LoanRequestModal({ isOpen, onClose, onSubmit, loading })
     setDurationDays("");
     setInterestRate("");
     setPurpose("");
+    setGuarantor("");
+    setDescription("");
   }
 
   return (
@@ -77,6 +88,18 @@ export default function LoanRequestModal({ isOpen, onClose, onSubmit, loading })
           </div>
 
           <div>
+            <label className="mb-1 block text-sm text-text/80">Guarantor wallet (0x…)</label>
+            <input
+              type="text"
+              value={guarantor}
+              onChange={(event) => setGuarantor(event.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-card px-3 py-2 font-mono text-sm text-text"
+              placeholder="0x..."
+              required
+            />
+          </div>
+
+          <div>
             <label className="mb-1 block text-sm text-text/80">Purpose</label>
             <input
               type="text"
@@ -84,6 +107,17 @@ export default function LoanRequestModal({ isOpen, onClose, onSubmit, loading })
               onChange={(event) => setPurpose(event.target.value)}
               className="w-full rounded-xl border border-white/10 bg-card px-3 py-2 text-text"
               placeholder="Inventory expansion"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm text-text/80">Description</label>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              rows={3}
+              className="w-full rounded-xl border border-white/10 bg-card px-3 py-2 text-text"
+              placeholder="Additional details for lenders"
             />
           </div>
 

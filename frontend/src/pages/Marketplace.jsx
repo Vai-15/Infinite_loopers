@@ -1,4 +1,6 @@
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useMemo, useState } from "react";
+import toast from "react-hot-toast";
 
 import LoanCard from "@/components/LoanCard";
 import { useContract } from "@/hooks/useContract";
@@ -12,9 +14,10 @@ const sortOptions = [
 ];
 
 export default function Marketplace() {
-  const { account, isConnected, connectWallet } = useContract();
-  const filters = useMemo(() => ({ status: "PENDING" }), []);
-  const { loans, loading, error, refresh } = useLoans(filters);
+  const { account, isConnected } = useContract();
+  const { openConnectModal } = useConnectModal();
+  const filters = useMemo(() => ({ status: "PENDING", marketplace: true }), []);
+  const { loans, loading, error, refresh } = useLoans(filters, 10000);
   const { fundLoan, loading: txLoading, error: txError } = useLoanActions();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("amount");
@@ -35,7 +38,9 @@ export default function Marketplace() {
 
   async function handleFundLoan(loan) {
     if (!isConnected) {
-      await connectWallet();
+      openConnectModal?.();
+      toast("Connect a wallet to fund a loan");
+      return;
     }
 
     if (account && account.toLowerCase() === loan.borrower_wallet.toLowerCase()) {

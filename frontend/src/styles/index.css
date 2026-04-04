@@ -16,12 +16,23 @@ body,
 
 body {
   margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+html.dark body {
   background:
     radial-gradient(circle at 10% 20%, rgba(233, 69, 96, 0.18) 0%, transparent 35%),
     radial-gradient(circle at 85% 0%, rgba(15, 52, 96, 0.45) 0%, transparent 40%),
     #1a1a2e;
   color: #eaeaea;
-  font-family: "Space Grotesk", sans-serif;
+}
+
+html:not(.dark) body {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(233, 69, 96, 0.12) 0%, transparent 35%),
+    radial-gradient(circle at 85% 0%, rgba(15, 52, 96, 0.15) 0%, transparent 40%),
+    #f1f5f9;
+  color: #0f172a;
 }
 
 .gradient-headline {

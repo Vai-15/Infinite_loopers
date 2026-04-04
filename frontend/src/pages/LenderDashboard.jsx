@@ -12,13 +12,15 @@ const COLORS = ["#E94560", "#14B8A6", "#F59E0B"];
 
 export default function LenderDashboard() {
   const { account } = useContract();
-  const filters = useMemo(() => ({ lender_wallet: account || undefined }), [account]);
-  const { loans, loading, error, refresh } = useLoans(filters);
-  const { markDefault, loading: txLoading, error: txError } = useLoanActions();
+  const filters = useMemo(() => ({ lender_wallet: account }), [account]);
+  const { loans, loading, error, refresh } = useLoans(filters, null, !account);
+  const { declareDefaultOnChain, loading: txLoading, error: txError } = useLoanActions();
 
   const stats = useMemo(() => {
     const totalLent = loans.reduce((sum, loan) => sum + Number(loan.amount_usdc), 0);
-    const activeInvestments = loans.filter((loan) => ["ACTIVE", "REPAYING"].includes(loan.status)).length;
+    const activeInvestments = loans.filter((loan) =>
+      ["ACTIVE", "REPAYING", "FUNDED_PENDING_ACTIVATION"].includes(loan.status)
+    ).length;
     const earnedInterest = loans
       .filter((loan) => loan.status === "COMPLETED")
       .reduce((sum, loan) => sum + loan.amount_usdc * (loan.interest_rate / 100), 0);
@@ -32,7 +34,10 @@ export default function LenderDashboard() {
 
   const portfolioData = useMemo(
     () => [
-      { name: "Active", value: loans.filter((loan) => ["ACTIVE", "REPAYING"].includes(loan.status)).length },
+      {
+        name: "Active",
+        value: loans.filter((loan) => ["ACTIVE", "REPAYING", "FUNDED_PENDING_ACTIVATION"].includes(loan.status)).length
+      },
       { name: "Completed", value: loans.filter((loan) => loan.status === "COMPLETED").length },
       { name: "Defaulted", value: loans.filter((loan) => loan.status === "DEFAULTED").length }
     ],
@@ -40,7 +45,7 @@ export default function LenderDashboard() {
   );
 
   async function handleMarkDefault(loan) {
-    await markDefault(loan.id);
+    await declareDefaultOnChain(loan.id);
     await refresh();
   }
 
@@ -103,7 +108,7 @@ export default function LenderDashboard() {
                     <td className={`py-3 ${formatStatus(loan.status).color}`}>{formatStatus(loan.status).label}</td>
                     <td className="py-3">{formatDate(loan.created_at)}</td>
                     <td className="py-3">
-                      {loan.status === "ACTIVE" || loan.status === "REPAYING" ? (
+                      {loan.status === "ACTIVE" || loan.status === "REPAYING" || loan.status === "FUNDED_PENDING_ACTIVATION" ? (
                         <button
                           type="button"
                           onClick={() => handleMarkDefault(loan)}

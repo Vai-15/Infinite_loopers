@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { ROUTES } from "@/utils/constants";
 
 const links = [
-  { to: ROUTES.borrow, label: "Borrower", icon: "BR" },
+  { to: ROUTES.dashboard, label: "Borrower", icon: "BR" },
   { to: ROUTES.lend, label: "Lender", icon: "LN" },
   { to: ROUTES.marketplace, label: "Market", icon: "MK" },
   { to: ROUTES.apply, label: "Apply", icon: "AP" },

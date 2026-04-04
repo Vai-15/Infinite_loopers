@@ -26,7 +26,13 @@ LOAN_FACTORY_MIN_ABI: list[dict[str, Any]] = [
 
 class BlockchainService:
     def __init__(self, rpc_url: str | None = None, loan_factory_address: str | None = None) -> None:
-        self.rpc_url = rpc_url or os.getenv("ALCHEMY_MUMBAI_URL") or os.getenv("ALCHEMY_POLYGON_URL")
+        self.rpc_url = (
+            rpc_url
+            or os.getenv("WEB3_RPC_URL")
+            or os.getenv("HARDHAT_RPC_URL")
+            or os.getenv("ALCHEMY_MUMBAI_URL")
+            or os.getenv("ALCHEMY_POLYGON_URL")
+        )
         self.loan_factory_address = loan_factory_address or os.getenv("LOAN_FACTORY_ADDRESS")
         self.w3 = Web3(Web3.HTTPProvider(self.rpc_url)) if self.rpc_url else None
 

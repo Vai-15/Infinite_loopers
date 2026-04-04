@@ -132,6 +132,11 @@ contract TrustDAO {
         return _status[disputeId];
     }
 
+    /// @return Number of disputes ever created (ids are 1..counter).
+    function disputeCounter() external view returns (uint256) {
+        return _disputeIdCounter;
+    }
+
     function getDispute(uint256 disputeId)
         external
         view

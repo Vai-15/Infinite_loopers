@@ -1,124 +1,118 @@
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { BrowserProvider } from "ethers";
+import { useAccount, useChainId, useDisconnect, useWalletClient } from "wagmi";
 
-import {
-  connectWallet,
-  getConnectedAccounts,
-  getLoanFactoryContract,
-  getWalletTxCount,
-  switchToTargetChain
-} from "@/services/blockchain";
+import { api } from "@/services/api";
+import { buildContracts, getWalletTxCount } from "@/services/blockchain";
+import { walletClientToSigner } from "@/lib/ethersAdapter";
 
 const Web3Context = createContext(null);
 
 export function Web3Provider({ children }) {
-  const [account, setAccount] = useState("");
-  const [provider, setProvider] = useState(null);
+  const { address, isConnected, status } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const { disconnect } = useDisconnect();
+  const { openConnectModal } = useConnectModal();
+  const chainId = useChainId();
+
   const [signer, setSigner] = useState(null);
-  const [contract, setContract] = useState(null);
-  const [chainId, setChainId] = useState(null);
+  const [contracts, setContracts] = useState({});
   const [txCount, setTxCount] = useState(0);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState("");
 
-  const disconnectWallet = useCallback(() => {
-    setAccount("");
-    setProvider(null);
-    setSigner(null);
-    setContract(null);
-    setChainId(null);
-    setTxCount(0);
-    setIsConnected(false);
-    setError("");
-  }, []);
-
-  const refreshOnchainStats = useCallback(async () => {
-    if (!provider || !account) {
-      setTxCount(0);
-      return;
-    }
-    const count = await getWalletTxCount(provider, account);
-    setTxCount(Number(count));
-  }, [provider, account]);
-
-  const connect = useCallback(async () => {
-    setIsConnecting(true);
-    setError("");
-    try {
-      await switchToTargetChain();
-      const session = await connectWallet();
-      setAccount(session.account);
-      setProvider(session.provider);
-      setSigner(session.signer);
-      setChainId(session.chainId);
-      setContract(getLoanFactoryContract(session.signer));
-      setIsConnected(Boolean(session.account));
-      return session;
-    } catch (err) {
-      setError(err?.message || "Unable to connect wallet");
-      throw err;
-    } finally {
-      setIsConnecting(false);
-    }
-  }, []);
+  const isConnecting = status === "connecting" || status === "reconnecting";
 
   useEffect(() => {
-    async function restore() {
-      const accounts = await getConnectedAccounts();
-      if (accounts.length > 0) {
+    let cancelled = false;
+
+    async function run() {
+      if (!walletClient || !address) {
+        setSigner(null);
+        setContracts({});
+        return;
+      }
+      try {
+        const s = await walletClientToSigner(walletClient);
+        if (cancelled) return;
+        setSigner(s);
+        const built = buildContracts(s);
+        setContracts(built);
+        setError("");
         try {
-          await connect();
-        } catch {
-          disconnectWallet();
+          await api.registerUser({ wallet_address: address });
+        } catch (e) {
+          if (e?.response?.status !== 409) {
+            console.warn("registerUser", e);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.message || "Failed to load contracts");
+          setSigner(null);
+          setContracts({});
         }
       }
     }
 
-    restore();
-  }, [connect, disconnectWallet]);
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [walletClient, address]);
+
+  const provider = useMemo(() => {
+    if (typeof window === "undefined" || !window.ethereum || !address) {
+      return null;
+    }
+    return new BrowserProvider(window.ethereum);
+  }, [address]);
+
+  const refreshOnchainStats = useCallback(async () => {
+    if (!provider || !address) {
+      setTxCount(0);
+      return;
+    }
+    const count = await getWalletTxCount(provider, address);
+    setTxCount(Number(count));
+  }, [provider, address]);
 
   useEffect(() => {
     refreshOnchainStats();
   }, [refreshOnchainStats]);
 
-  useEffect(() => {
-    if (!window.ethereum) {
-      return undefined;
-    }
+  const disconnectWallet = useCallback(() => {
+    disconnect();
+    setSigner(null);
+    setContracts({});
+    setTxCount(0);
+    setError("");
+  }, [disconnect]);
 
-    const onAccountsChanged = async (accounts) => {
-      if (!accounts || accounts.length === 0) {
-        disconnectWallet();
-        return;
-      }
-      await connect();
-    };
+  const connectWallet = useCallback(async () => {
+    openConnectModal?.();
+  }, [openConnectModal]);
 
-    const onChainChanged = () => {
-      window.location.reload();
-    };
-
-    window.ethereum.on("accountsChanged", onAccountsChanged);
-    window.ethereum.on("chainChanged", onChainChanged);
-
-    return () => {
-      window.ethereum.removeListener("accountsChanged", onAccountsChanged);
-      window.ethereum.removeListener("chainChanged", onChainChanged);
-    };
-  }, [connect, disconnectWallet]);
+  const account = address ?? "";
 
   const value = useMemo(
     () => ({
       account,
       provider,
       signer,
-      contract,
       chainId,
       txCount,
       isConnected,
       isConnecting,
       error,
-      connectWallet: connect,
+      contracts,
+      loanFactory: contracts.loanFactory,
+      reputationNFT: contracts.reputationNFT,
+      escrowVault: contracts.escrowVault,
+      didRegistry: contracts.didRegistry,
+      trustDAO: contracts.trustDAO,
+      mockUSDC: contracts.mockUSDC,
+      connectWallet,
       disconnectWallet,
       refreshOnchainStats
     }),
@@ -126,13 +120,13 @@ export function Web3Provider({ children }) {
       account,
       provider,
       signer,
-      contract,
       chainId,
       txCount,
       isConnected,
       isConnecting,
       error,
-      connect,
+      contracts,
+      connectWallet,
       disconnectWallet,
       refreshOnchainStats
     ]

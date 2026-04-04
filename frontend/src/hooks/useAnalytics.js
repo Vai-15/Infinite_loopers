@@ -24,12 +24,18 @@ export function useAnalytics() {
           api.getAnalyticsVolume(30),
           api.getTopBorrowers(),
           api.getTopLenders(),
-          api.getRecentEvents(10)
+          api.getAnalyticsFeed(10)
         ]);
 
       setOverview(overviewData);
       setDashboard(dashboardData);
-      setVolume(volumeData.points || []);
+      const rawVol = Array.isArray(volumeData) ? volumeData : volumeData?.points || [];
+      setVolume(
+        rawVol.map((p) => ({
+          date: p.date || p.day,
+          volume_usdc: p.volume_usdc ?? p.volumeEth ?? 0
+        }))
+      );
       setTopBorrowers(borrowersData || []);
       setTopLenders(lendersData || []);
       setEvents(eventsData || []);
@@ -43,6 +49,18 @@ export function useAnalytics() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const id = setInterval(async () => {
+      try {
+        const feed = await api.getAnalyticsFeed(10);
+        setEvents(feed || []);
+      } catch {
+        /* ignore */
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   return {
     overview,

@@ -82,13 +82,19 @@ class CreditService:
             model = artifact.get("model") if isinstance(artifact, dict) else artifact
             columns = artifact.get("feature_columns", FEATURE_COLUMNS) if isinstance(artifact, dict) else FEATURE_COLUMNS
             feature_frame = self._feature_frame(features, columns)
-            if hasattr(model, "predict_proba"):
+            raw = float(model.predict(feature_frame)[0])
+            if raw >= 250:
+                score = int(np.clip(round(raw), 300, 850))
+                risk_prob = float(np.clip(1 - ((score - 300) / 550), 0.0, 1.0))
+                confidence = float(np.clip(0.55 + abs(risk_prob - 0.5), 0.55, 0.99))
+            elif hasattr(model, "predict_proba"):
                 risk_prob = float(model.predict_proba(feature_frame)[0][1])
+                score = int(np.clip(round(850 - (550 * risk_prob)), 300, 850))
+                confidence = float(np.clip(max(risk_prob, 1 - risk_prob), 0.5, 0.99))
             else:
-                prediction = float(model.predict(feature_frame)[0])
-                risk_prob = float(np.clip(prediction, 0.0, 1.0))
-            score = int(np.clip(round(850 - (550 * risk_prob)), 300, 850))
-            confidence = float(np.clip(max(risk_prob, 1 - risk_prob), 0.5, 0.99))
+                risk_prob = float(np.clip(raw, 0.0, 1.0))
+                score = int(np.clip(round(850 - (550 * risk_prob)), 300, 850))
+                confidence = float(np.clip(max(risk_prob, 1 - risk_prob), 0.5, 0.99))
 
         if score >= 720:
             risk_level = "LOW"

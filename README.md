@@ -113,6 +113,21 @@ npm run dev
 
 Vite app will run on default local Vite port (usually `5173`).
 
+### Integrated local demo (Hardhat + synced env)
+
+For an end-to-end run with MetaMask on a local chain:
+
+1. **Terminal A — chain:** `npx hardhat node`
+2. **Terminal B — deploy:** `npx hardhat run scripts/deploy.js --network localhost` then `npm run sync:env` to push addresses into `backend/.env` and `frontend/.env`.
+3. **ML (optional):** `make train` (writes `ml/models/credit_model.pkl` and `feature_importance.png`).
+4. **Backend:** `cd backend && python -m pip install -r requirements-base.txt && uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload`  
+   Use `requirements.txt` if you need the full set including XGBoost for the pickled model.
+5. **Frontend:** `cd frontend && npm run dev` — set `VITE_CHAIN_ID=31337` and `VITE_CHAIN_RPC=http://127.0.0.1:8545` (sync script sets these when deploying to Hardhat).
+
+Contract tests (including E2E lifecycle): `npm test` (see `test/e2e/happyPath.test.js`).
+
+**Mumbai:** set `MUMBAI_RPC_URL` and `PRIVATE_KEY` in `.env`, run `npx hardhat run scripts/deploy.js --network mumbai`, then `node scripts/sync_env.js mumbai`.
+
 ## 5) Local Dev Without Docker (Optional)
 
 ### Backend

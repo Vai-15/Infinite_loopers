@@ -18,6 +18,7 @@ export function formatStatus(status) {
 
   const colorMap = {
     PENDING: "text-amber-300",
+    FUNDED_PENDING_ACTIVATION: "text-orange-300",
     ACTIVE: "text-sky-300",
     REPAYING: "text-cyan-300",
     COMPLETED: "text-emerald-300",

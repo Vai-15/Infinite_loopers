@@ -10,7 +10,8 @@
     "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
     "deploy:mumbai": "hardhat run scripts/deploy.js --network mumbai",
     "seed:local": "hardhat run scripts/seed-testnet.js --network localhost",
-    "seed:hardhat": "hardhat run scripts/seed-testnet.js --network hardhat"
+    "seed:hardhat": "hardhat run scripts/seed-testnet.js --network hardhat",
+    "sync:env": "node scripts/sync_env.js"
   },
   "keywords": [],
   "author": "",

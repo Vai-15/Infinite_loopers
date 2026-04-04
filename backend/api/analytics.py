@@ -3,9 +3,11 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.loans import get_all_loans, get_loan_events
+from models.database import get_db
+from services import persistence
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 
@@ -60,7 +62,7 @@ def _trust_distribution(loans):
     return [{"range": k, "count": v} for k, v in buckets.items()]
 
 
-def _overview(loans):
+def _overview_dict(loans: list) -> dict[str, object]:
     total_loans = len(loans)
     total_volume = round(sum(loan.amount_usdc for loan in loans), 2)
     defaulted = len([loan for loan in loans if loan.status == "DEFAULTED"])
@@ -77,38 +79,61 @@ def _overview(loans):
     }
 
 
-@router.get("/overview")
-async def get_overview() -> dict[str, object]:
-    loans = get_all_loans()
-    return _overview(loans)
-
-
-@router.get("/volume")
-async def get_volume(days: int = Query(default=30, ge=1, le=365)) -> dict[str, object]:
-    loans = get_all_loans()
-    now = datetime.now(UTC)
-    start = now - timedelta(days=days - 1)
-
-    by_day: dict[str, float] = {}
-    for i in range(days):
-        day = (start + timedelta(days=i)).date().isoformat()
-        by_day[day] = 0.0
-
-    for loan in loans:
-        day = loan.created_at.date().isoformat()
-        if day in by_day:
-            by_day[day] += float(loan.amount_usdc)
-
+@router.get("/summary")
+async def analytics_summary(db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    loans = await persistence.get_all_loans(db)
+    total_volume = round(sum(loan.amount_usdc for loan in loans), 2)
+    scores = [loan.borrower_credit_score for loan in loans if loan.borrower_credit_score is not None]
+    avg_credit = round(sum(scores) / len(scores), 2) if scores else 0.0
+    defaulted = len([l for l in loans if l.status == "DEFAULTED"])
+    dr = round((defaulted / len(loans)) * 100, 2) if loans else 0.0
     return {
-        "points": [{"day": day, "volumeEth": round(amount, 2)} for day, amount in by_day.items()]
+        "tvl_usdc": total_volume,
+        "total_loans": len(loans),
+        "avg_credit_score": avg_credit,
+        "default_rate_pct": dr,
     }
 
 
-@router.get("/dashboard")
-async def get_dashboard() -> dict[str, object]:
-    loans = get_all_loans()
+@router.get("/volume")
+async def analytics_volume(days: int = Query(default=30, ge=1, le=365), db: AsyncSession = Depends(get_db)) -> list[dict]:
+    loans = await persistence.get_all_loans(db)
+    now = datetime.now(UTC).date()
+    out: list[dict] = []
+    for i in range(days - 1, -1, -1):
+        day = now - timedelta(days=i)
+        ds = day.isoformat()
+        vol = sum(l.amount_usdc for l in loans if l.created_at.date() == day)
+        cnt = len([l for l in loans if l.created_at.date() == day])
+        out.append({"date": ds, "loans_issued": cnt, "volume_usdc": round(vol, 2)})
+    return out
+
+
+@router.get("/distribution")
+async def analytics_distribution(db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    loans = await persistence.get_all_loans(db)
     return {
-        "overview": _overview(loans),
+        "credit_score_bands": _trust_distribution(loans),
+        "loan_status": _status_breakdown(loans),
+    }
+
+
+@router.get("/feed")
+async def analytics_feed(limit: int = Query(default=10, ge=1, le=50)) -> list[dict[str, object]]:
+    return persistence.get_loan_events(limit)
+
+
+@router.get("/overview")
+async def get_overview(db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    loans = await persistence.get_all_loans(db)
+    return _overview_dict(loans)
+
+
+@router.get("/dashboard")
+async def get_dashboard(db: AsyncSession = Depends(get_db)) -> dict[str, object]:
+    loans = await persistence.get_all_loans(db)
+    return {
+        "overview": _overview_dict(loans),
         "statusBreakdown": _status_breakdown(loans),
         "durationBuckets": _duration_buckets(loans),
         "trustDistribution": _trust_distribution(loans),
@@ -116,8 +141,8 @@ async def get_dashboard() -> dict[str, object]:
 
 
 @router.get("/topBorrowers")
-async def get_top_borrowers(limit: int = Query(default=5, ge=1, le=20)) -> list[dict[str, object]]:
-    loans = get_all_loans()
+async def get_top_borrowers(limit: int = Query(default=5, ge=1, le=20), db: AsyncSession = Depends(get_db)) -> list[dict]:
+    loans = await persistence.get_all_loans(db)
     stats: dict[str, dict[str, object]] = {}
 
     for loan in loans:
@@ -133,17 +158,17 @@ async def get_top_borrowers(limit: int = Query(default=5, ge=1, le=20)) -> list[
         )
         row["borrowedVolume"] = round(float(row["borrowedVolume"]) + loan.amount_usdc, 2)
         if loan.status == "COMPLETED":
-            row["repaidLoans"] += 1
+            row["repaidLoans"] = int(row["repaidLoans"]) + 1
         if loan.status == "DEFAULTED":
-            row["defaultedLoans"] += 1
+            row["defaultedLoans"] = int(row["defaultedLoans"]) + 1
 
     ranked = sorted(stats.values(), key=lambda x: (x["score"], x["borrowedVolume"]), reverse=True)
     return ranked[:limit]
 
 
 @router.get("/topLenders")
-async def get_top_lenders(limit: int = Query(default=5, ge=1, le=20)) -> list[dict[str, object]]:
-    loans = [loan for loan in get_all_loans() if loan.lender_wallet]
+async def get_top_lenders(limit: int = Query(default=5, ge=1, le=20), db: AsyncSession = Depends(get_db)) -> list[dict]:
+    loans = [loan for loan in await persistence.get_all_loans(db) if loan.lender_wallet]
     stats: dict[str, dict[str, object]] = {}
 
     for loan in loans:
@@ -158,8 +183,8 @@ async def get_top_lenders(limit: int = Query(default=5, ge=1, le=20)) -> list[di
             },
         )
         row["totalEth"] = round(float(row["totalEth"]) + loan.amount_usdc, 2)
-        if loan.status in {"ACTIVE", "REPAYING"}:
-            row["activeLoans"] += 1
+        if loan.status in {"ACTIVE", "REPAYING", "FUNDED_PENDING_ACTIVATION"}:
+            row["activeLoans"] = int(row["activeLoans"]) + 1
         if loan.status == "COMPLETED":
             row["earnedInterest"] = round(
                 float(row["earnedInterest"]) + (loan.amount_usdc * (loan.interest_rate / 100)),
@@ -172,4 +197,4 @@ async def get_top_lenders(limit: int = Query(default=5, ge=1, le=20)) -> list[di
 
 @router.get("/recent-events")
 async def get_recent_events(limit: int = Query(default=10, ge=1, le=50)) -> list[dict[str, object]]:
-    return get_loan_events(limit)
+    return persistence.get_loan_events(limit)

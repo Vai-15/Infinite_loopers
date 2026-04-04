@@ -1,18 +1,2 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-asyncpg
-psycopg2-binary
-pydantic
-pydantic-settings
-web3
-joblib
-scikit-learn
+-r requirements-base.txt
 xgboost
-pandas
-numpy
-python-dotenv
-httpx
-slowapi
-structlog
-alembic

@@ -18,6 +18,13 @@ describe("DecentralizedID", function () {
       .withArgs(alice.address, "QmTest123");
   });
 
+  it("registerDID is an alias for the same registry flow", async function () {
+    const { did, alice } = await deploy();
+    await expect(did.connect(alice).registerDID("did:polygon:0xabc"))
+      .to.emit(did, "IdentityRegistered")
+      .withArgs(alice.address, "did:polygon:0xabc");
+  });
+
   it("prevents duplicate DID registration", async function () {
     const { did, alice } = await deploy();
     await did.connect(alice).registerIdentity("QmA");
