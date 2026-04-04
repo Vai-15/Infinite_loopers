@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useWeb3 } from "../context/Web3Context";
 import { fetchBorrowerLoans, fetchLenderLoans } from "../utils/queries";
+import { assertValidEthAddress } from "../utils/security";
 
 export function useMyLoans(role) {
     const { account, contract, isConnected } = useWeb3();
@@ -17,6 +18,7 @@ export function useMyLoans(role) {
         try {
             setLoading(true);
             setError("");
+            assertValidEthAddress(account, "Connected wallet");
             const data =
                 role === "lender"
                     ? await fetchLenderLoans(contract, account)

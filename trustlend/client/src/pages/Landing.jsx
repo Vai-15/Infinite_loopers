@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import SecurityBadge from "../components/SecurityBadge";
 import WalletConnectButton from "../components/WalletConnectButton";
 import StatsCard from "../components/StatsCard";
 import { LANDING_STATS } from "../utils/constants";
@@ -84,6 +85,10 @@ export default function Landing() {
                         Explore Marketplace
                     </button>
                 </section>
+
+                <div className="mt-6 flex justify-end">
+                    <SecurityBadge compact />
+                </div>
             </section>
         </main>
     );

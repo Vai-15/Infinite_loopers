@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { sanitizeIntegerInput, sanitizeNumericInput } from "../utils/security";
 
 export default function LoanRequestModal({ isOpen, onClose, onSubmit, loading }) {
     const [amount, setAmount] = useState("");
@@ -12,12 +13,35 @@ export default function LoanRequestModal({ isOpen, onClose, onSubmit, loading })
     async function handleSubmit(event) {
         event.preventDefault();
 
-        if (!amount || !durationDays || !interestRate) {
+        const sanitizedAmount = sanitizeNumericInput(amount);
+        const sanitizedDuration = sanitizeIntegerInput(durationDays);
+        const sanitizedInterest = sanitizeIntegerInput(interestRate);
+
+        if (!sanitizedAmount || !sanitizedDuration || !sanitizedInterest) {
             alert("Please complete all fields.");
             return;
         }
 
-        await onSubmit({ amount, durationDays, interestRate });
+        if (Number(sanitizedAmount) <= 0) {
+            alert("Amount must be greater than zero.");
+            return;
+        }
+
+        if (Number(sanitizedDuration) < 1 || Number(sanitizedDuration) > 365) {
+            alert("Duration must be between 1 and 365 days.");
+            return;
+        }
+
+        if (Number(sanitizedInterest) < 0 || Number(sanitizedInterest) > 50) {
+            alert("Interest rate must be between 0 and 50%.");
+            return;
+        }
+
+        await onSubmit({
+            amount: sanitizedAmount,
+            durationDays: sanitizedDuration,
+            interestRate: sanitizedInterest
+        });
         setAmount("");
         setDurationDays("");
         setInterestRate("");

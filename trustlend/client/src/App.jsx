@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import { useWeb3 } from "./context/Web3Context";
 import BorrowerDashboard from "./pages/BorrowerDashboard";
+import AnalyticsDashboard from "./pages/AnalyticsDashboard";
 import Landing from "./pages/Landing";
 import LenderDashboard from "./pages/LenderDashboard";
 import Marketplace from "./pages/Marketplace";
@@ -23,6 +24,7 @@ export default function App() {
                 <Navbar />
                 <Routes>
                     <Route path="/" element={<Landing />} />
+                    <Route path="/analytics" element={<AnalyticsDashboard />} />
                     <Route path="/marketplace" element={<Marketplace />} />
                     <Route
                         path="/borrow"

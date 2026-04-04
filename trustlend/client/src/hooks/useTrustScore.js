@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWeb3 } from "../context/Web3Context";
 import { fetchTrustScore } from "../utils/queries";
+import { isValidEthAddress } from "../utils/security";
 
 export function useTrustScore(address) {
     const { contract } = useWeb3();
@@ -9,6 +10,11 @@ export function useTrustScore(address) {
     useEffect(() => {
         async function loadScore() {
             if (!contract || !address) {
+                setScore(0);
+                return;
+            }
+
+            if (!isValidEthAddress(address)) {
                 setScore(0);
                 return;
             }

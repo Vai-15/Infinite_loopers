@@ -13,10 +13,19 @@ export function formatEth(value, maximumFractionDigits = 4) {
         return "0 ETH";
     }
 
-    const normalized =
-        typeof value === "string" || typeof value === "number"
-            ? Number(value)
-            : Number(ethers.utils.formatEther(value));
+    let normalized = 0;
+
+    if (ethers.BigNumber.isBigNumber(value)) {
+        normalized = Number(ethers.utils.formatEther(value));
+    } else if (typeof value === "string") {
+        if (/^\d+$/.test(value)) {
+            normalized = Number(ethers.utils.formatEther(value));
+        } else {
+            normalized = Number(value);
+        }
+    } else {
+        normalized = Number(value);
+    }
 
     return `${normalized.toLocaleString(undefined, {
         maximumFractionDigits

@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import WalletConnectButton from "./WalletConnectButton";
 
 const links = [
+    { to: "/analytics", label: "Analytics" },
     { to: "/marketplace", label: "Marketplace" },
     { to: "/borrow", label: "Borrow" },
     { to: "/lend", label: "Lend" },

@@ -1,6 +1,8 @@
 export const CONTRACT_ADDRESS =
     process.env.REACT_APP_TRUSTLEND_CONTRACT || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
+export const USE_MOCK_DATA = process.env.REACT_APP_USE_MOCK_DATA === "true";
+
 export const SUPPORTED_CHAIN_IDS = [31337, 11155111];
 
 export const CHAIN_CONFIGS = {
@@ -45,3 +47,12 @@ export const LANDING_STATS = [
     { title: "Active Borrowers", value: "387" },
     { title: "Avg Trust Score", value: "74" }
 ];
+
+export const TRUSTLEND_CHART_COLORS = {
+    primary: "#E94560",
+    secondary: "#0F3460",
+    tertiary: "#16213E",
+    quaternary: "#335C81",
+    axis: "#AAAAAA",
+    grid: "#2A2A4A"
+};

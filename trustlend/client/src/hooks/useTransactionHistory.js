@@ -8,6 +8,7 @@ import {
     listenLoanFunded,
     listenLoanRepaid
 } from "../utils/events";
+import { assertValidEthAddress } from "../utils/security";
 
 export function useTransactionHistory() {
     const { account, contract, provider } = useWeb3();
@@ -24,6 +25,7 @@ export function useTransactionHistory() {
         try {
             setLoading(true);
             setError("");
+            assertValidEthAddress(account, "Connected wallet");
             const history = await fetchEventHistory(contract, provider, account);
             setEvents(history);
         } catch (err) {
