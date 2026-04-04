@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #020617;
+  --card: #0f172a;
+}
+
+body {
+  @apply min-h-screen bg-slate-950 text-slate-100 antialiased;
+  background-image: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(13, 148, 136, 0.25), transparent);
+}
